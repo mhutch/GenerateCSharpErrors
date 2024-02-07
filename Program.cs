@@ -34,7 +34,7 @@ namespace GenerateCSharpErrors
             }
 
             using var writer = GetOutputWriter(options);
-            WriteMarkdownTable(errorCodes, writer);
+            WriteBuildSchema(errorCodes, writer);
         }
 
         const string ErrorCodesUrlFormat = "https://raw.githubusercontent.com/dotnet/roslyn/{0}/src/Compilers/CSharp/Portable/Errors/ErrorCode.cs";
@@ -151,18 +151,29 @@ namespace GenerateCSharpErrors
                 var href = item.Href.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
                     ? item.Href[..^3]
                     : item.Href;
-                codes.Add(code, href);
+                codes.TryAdd(code, href);
             }
 
             foreach (var item in root!.Items.Where(e => e.Items == null && !string.IsNullOrWhiteSpace(e.DisplayName)))
             {
                 foreach (var name in Regex.Split(item.DisplayName, @"\s*,\s*"))
                 {
-                    int code = int.Parse(Path.GetFileNameWithoutExtension(name)![2..]);
-                    var href = item.Href.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                        ? item.Href[..^3]
-                        : item.Href;
-                    codes.Add(code, href);
+                    // some have the CS, some don't
+                    var trimmedName = Path.GetFileNameWithoutExtension(name)!;
+                    if (trimmedName.StartsWith("CS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        trimmedName = trimmedName[2..];
+                    }
+
+                    if (int.TryParse(trimmedName, out int code)) {
+                        var href = item.Href.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                            ? item.Href[..^3]
+                            : item.Href;
+                        if (!codes.TryAdd (code, href))
+                        {
+                            Console.WriteLine(code);
+                        }
+                    }
                 }
             }
 
@@ -207,46 +218,35 @@ namespace GenerateCSharpErrors
             }
         }
 
-        private static void WriteMarkdownTable(IEnumerable<ErrorCode> errorCodes, TextWriter writer)
+        private static void WriteBuildSchema(IEnumerable<ErrorCode> errorCodes, TextWriter writer)
         {
-            writer.WriteLine("# All C# errors and warnings");
+            writer.WriteLine("{");
+            writer.WriteLine("  \"types\": {");
+            writer.WriteLine("    \"csharp-warning\": {");
+            writer.WriteLine("      \"description\": \"Warning codes for the C# compiler\",");
+            writer.WriteLine("      \"baseType\": \"warning-code\",");
+            writer.WriteLine("      \"values\": {");
 
-            writer.WriteLine();
-            writer.WriteLine("*Parsed from the [Roslyn source code](https://github.com/dotnet/roslyn) using Roslyn.*");
-            writer.WriteLine();
-
-            static string Link(ErrorCode e) =>
-                e.Link is null
-                    ? e.Code
-                    : $"[{e.Code}]({e.Link})";
-
-            var stats = new Dictionary<Severity, int>();
-
-            writer.WriteLine("|Code|Severity|Message|");
-            writer.WriteLine("|----|--------|-------|");
             foreach (var e in errorCodes)
             {
-                if (e.Severity == Severity.Unknown) continue;
-                stats[e.Severity] = stats.GetValueOrDefault(e.Severity) + 1;
-                writer.WriteLine($"|{Link(e)}|{e.Severity}|{MarkdownEscape(e.Message)}|");
+                if (e.Severity != Severity.Warning)
+                {
+                    continue;
+                }
+                writer.WriteLine($"        \"{e.Code}\": {{");
+                writer.WriteLine($"          \"description\": \"{Escape(e.Message)}\",");
+                if (e.Link != null)
+                {
+                    writer.WriteLine($"          \"helpUrl\": \"{e.Link}\"");
+                }
+                writer.WriteLine("        },");
             }
+            writer.WriteLine("      }");
+            writer.WriteLine("    }");
+            writer.WriteLine("  }");
+            writer.WriteLine("}");
 
-            writer.WriteLine();
-            writer.WriteLine("## Statistics");
-            writer.WriteLine();
-
-            writer.WriteLine("|Severity|Count|");
-            writer.WriteLine("|--------|-----|");
-            foreach (var kvp in stats.OrderBy(_ => _.Key))
-            {
-                writer.WriteLine($"|{kvp.Key}|{kvp.Value}|");
-            }
-            writer.WriteLine($"|**Total**|**{stats.Sum(kvp => kvp.Value)}**|");
-        }
-
-        private static string MarkdownEscape(string text)
-        {
-            return Regex.Replace(text, "(\\<|\\>|_|\\*)", "\\$1");
+            static string Escape (string s) => s.Replace("\"", "\\\"");
         }
 
         class ErrorCode
