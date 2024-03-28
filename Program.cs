@@ -39,8 +39,8 @@ namespace GenerateCSharpErrors
 
         const string ErrorCodesUrlFormat = "https://raw.githubusercontent.com/dotnet/roslyn/{0}/src/Compilers/CSharp/Portable/Errors/ErrorCode.cs";
         const string ErrorResourcesUrl = "https://raw.githubusercontent.com/dotnet/roslyn/{0}/src/Compilers/CSharp/Portable/CSharpResources.resx";
-        const string DocBaseUrl = "https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/";
-        const string DocUrlTemplateFallback = "https://docs.microsoft.com/en-us/dotnet/csharp/misc/cs{0:D4}";
+        const string DocBaseUrl = "https://learn.microsoft.com/dotnet/csharp/language-reference/compiler-messages/";
+        const string DocUrlTemplateFallback = "https://learn.microsoft.com/dotnet/csharp/misc/cs{0:D4}";
         const string DocTableOfContentsUrl = "https://raw.githubusercontent.com/dotnet/docs/main/docs/csharp/language-reference/compiler-messages/toc.yml";
 
         private static async Task<IReadOnlyList<ErrorCode>> GetErrorCodesAsync(CommandLineOptions options)
